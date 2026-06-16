@@ -5,7 +5,7 @@ A personal photography footprint website built with React, Vite, TypeScript, and
 The GitHub Pages URL is intended to be:
 
 ```text
-https://yunfanzeng00194.github.io/footprint/
+https://yunfan00194.github.io/footprint/
 ```
 
 ## Install Dependencies
