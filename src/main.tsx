@@ -10,36 +10,31 @@ import "maplibre-gl/dist/maplibre-gl.css";
 import "./styles.css";
 import { getCountryColor, getPhotoUrl, places, type Place } from "./data/places";
 
-type GalleryPhoto = {
-  filename: string;
-  index: number;
-  place: Place;
-};
-
 const mapStyle: maplibregl.StyleSpecification = {
   version: 8,
   glyphs: "https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf",
   sources: {
-    cartoLight: {
+    osmStandard: {
       type: "raster",
       tiles: [
-        "https://a.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png",
-        "https://b.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png",
-        "https://c.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png",
+        "https://a.tile.openstreetmap.org/{z}/{x}/{y}.png",
+        "https://b.tile.openstreetmap.org/{z}/{x}/{y}.png",
+        "https://c.tile.openstreetmap.org/{z}/{x}/{y}.png",
       ],
       tileSize: 256,
-      attribution:
-        '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
     },
   },
   layers: [
     {
-      id: "cartoLight",
+      id: "osmStandard",
       type: "raster",
-      source: "cartoLight",
+      source: "osmStandard",
     },
   ],
 };
+
+const totalPhotoCount = places.reduce((sum, place) => sum + place.photos.length, 0);
 
 function getGeoJson() {
   return {
@@ -50,6 +45,7 @@ function getGeoJson() {
         id: place.id,
         city: place.city,
         country: place.country,
+        region: place.region,
         color: getCountryColor(place.country),
         photoCount: place.photos.length,
       },
@@ -59,16 +55,6 @@ function getGeoJson() {
       },
     })),
   };
-}
-
-function allPhotos(): GalleryPhoto[] {
-  return places.flatMap((place) =>
-    place.photos.map((filename, index) => ({
-      filename,
-      index,
-      place,
-    })),
-  );
 }
 
 function App() {
@@ -207,22 +193,23 @@ function App() {
         const feature = event.features?.[0];
         if (!feature || feature.geometry.type !== "Point") return;
 
-        const { city, country, photoCount } = feature.properties as {
+        const { city, country, region } = feature.properties as {
           city: string;
           country: string;
-          photoCount: number;
+          region: string;
         };
 
         popupRef.current
           ?.setLngLat(feature.geometry.coordinates as [number, number])
-          .setHTML(`<p class="popup-title">${city}</p><p class="popup-meta">${country} · ${photoCount} photos</p>`)
+          .setHTML(`<p class="popup-title">${city}</p><p class="popup-meta">${region}, ${country}</p>`)
           .addTo(map);
       });
 
       map.on("click", "place-points", (event: MapLayerMouseEvent) => {
         const feature = event.features?.[0];
-        if (!feature) return;
+        if (!feature || feature.geometry.type !== "Point") return;
         const { id } = feature.properties as { id: string };
+        popupRef.current?.remove();
         focusPlace(id, true);
       });
 
@@ -262,9 +249,6 @@ function App() {
           <a className="text-link" href="#places">
             地点
           </a>
-          <a className="text-link" href="#gallery">
-            相册
-          </a>
         </nav>
       </header>
 
@@ -291,7 +275,7 @@ function App() {
             <p className="eyebrow">Places</p>
             <h2>按地点整理作品</h2>
             <p className="section-note">
-              {places.length} places · {allPhotos().length} photos
+              {places.length} places · {totalPhotoCount} photos
             </p>
           </div>
           <div className="place-list">
@@ -321,31 +305,6 @@ function App() {
             ))}
           </div>
         </section>
-
-        <section className="content-band gallery-band" id="gallery" aria-label="照片精选">
-          <div className="section-heading">
-            <p className="eyebrow">Gallery</p>
-            <h2>最近精选</h2>
-          </div>
-          <div className="gallery-grid">
-            {allPhotos().map((photo) => (
-              <button
-                className="photo-tile"
-                key={`${photo.place.id}-${photo.filename}`}
-                type="button"
-                onClick={() => {
-                  focusPlace(photo.place.id);
-                  setGallery({ placeId: photo.place.id, index: photo.index });
-                }}
-              >
-                <img src={getPhotoUrl(photo.filename)} alt={`${photo.place.city} photo ${photo.index + 1}`} loading="lazy" />
-                <span>
-                  {photo.place.city} · {photo.filename}
-                </span>
-              </button>
-            ))}
-          </div>
-        </section>
       </main>
 
       {gallery && galleryPlace && galleryFilename && (
@@ -366,7 +325,7 @@ function App() {
                 <p>
                   {galleryPlace.city}, {galleryPlace.country}
                 </p>
-                <h3>{galleryFilename}</h3>
+                <h3>{galleryPlace.city}</h3>
                 <span>
                   {gallery.index + 1} / {galleryPlace.photos.length} · {galleryPlace.camera}
                 </span>
